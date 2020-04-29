@@ -29,7 +29,7 @@ public:
 
 
 
-	bool begin(Log_Meta& logMeta, Stream& stream=Serial, const uint16_t& timeout=100);
+	bool begin(Log_Meta& logMeta, Stream& stream=Serial, const uint16_t& timeout=1000);
 	bool init();
 	void log(const float* data, const uint16_t& dataLen);
 	void log(const char* data);

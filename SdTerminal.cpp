@@ -91,6 +91,8 @@ void Logger::handleCmds()
 
 		readInput(input, sizeof(input));
 
+		Serial.println(input);
+
 		if (!strcmp(input, "ls"))
 		{
 			_serial->println(F("--------------------------------------------------"));
@@ -182,23 +184,30 @@ void Logger::handleCmds()
 
 void Logger::readInput(char input[], const uint8_t& inputSize)
 {
+	char c;
 	uint8_t i = 0;
 	
 	msTimer.reset();
 
-	while (_serial->available())
+	while (true)
 	{
-		char c = _serial->read();
+		if (_serial->available())
+		{
+			c = _serial->read();
+
+			if (msTimer.fire())
+				break;
+			else if (c == '\n')
+				break;
+			else if (i >= inputSize)
+				break;
+
+			input[i] = c;
+			i++;
+		}
 
 		if (msTimer.fire())
 			break;
-		else if (c == '\n')
-			break;
-		else if (i >= inputSize)
-			break;
-
-		input[i] = c;
-		i++;
 	}
 }
 
