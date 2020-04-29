@@ -187,7 +187,7 @@ void Logger::readInput(char input[], const uint8_t& inputSize)
 	char c;
 	uint8_t i = 0;
 	
-	msTimer.reset();
+	msTimer.start();
 
 	while (true)
 	{
