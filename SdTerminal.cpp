@@ -34,7 +34,7 @@ bool Logger::init()
 		}
 
 		myFile.open(filename, FILE_WRITE);
-		myFile.println(metaP->nameTemplate);
+		myFile.println(metaP->headerRow);
 		myFile.close();
 
 		initialized = true;
