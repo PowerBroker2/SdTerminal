@@ -47,7 +47,6 @@ private:
 	File root;
 
 	char filename[MAX_FILENAME_LEN];
-
 	uint16_t _timeout;
 
 
