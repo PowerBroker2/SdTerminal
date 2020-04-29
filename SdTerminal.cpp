@@ -53,20 +53,23 @@ bool Logger::init()
 
 void Logger::log(const float* data, const uint16_t& dataLen)
 {
-	myFile.open(filename, FILE_WRITE);
-
-	for (uint16_t i=0; i<dataLen; i++)
+	if (initialized)
 	{
-		myFile.print(data[i]);
+		myFile.open(filename, FILE_WRITE);
 
-		if ((i != (dataLen - 1)) && (i != (numColumns - 1)))
-			myFile.print(',');
-		else if (i == (numColumns - 1))
-			break;
+		for (uint16_t i = 0; i < dataLen; i++)
+		{
+			myFile.print(data[i]);
+
+			if ((i != (dataLen - 1)) && (i != (numColumns - 1)))
+				myFile.print(',');
+			else if (i == (numColumns - 1))
+				break;
+		}
+
+		myFile.println();
+		myFile.close();
 	}
-
-	myFile.println();
-	myFile.close();
 }
 
 
@@ -74,9 +77,12 @@ void Logger::log(const float* data, const uint16_t& dataLen)
 
 void Logger::log(const char* data)
 {
-	myFile.open(filename, FILE_WRITE);
-	myFile.println(data);
-	myFile.close();
+	if (initialized)
+	{
+		myFile.open(filename, FILE_WRITE);
+		myFile.println(data);
+		myFile.close();
+	}
 }
 
 
@@ -85,7 +91,7 @@ void Logger::log(const char* data)
 
 void Logger::handleCmds()
 {
-	if (_serial->available())
+	if (_serial->available() && initialized)
 	{
 		char input[50] = { '\0' };
 
@@ -101,10 +107,11 @@ void Logger::handleCmds()
 			printDirectory(root, 0);
 
 			_serial->println(F("--------------------------------------------------"));
-			_serial->println();
 		}
 		else if (strstr(input, "rm "))
 		{
+			_serial->println(F("--------------------------------------------------"));
+
 			char* p = strstr(input, "rm ") + 3;
 
 			char fileName[40] = { '\0' };
@@ -118,45 +125,31 @@ void Logger::handleCmds()
 
 				p++;
 			}
-
+			
 			if (sd.exists(fileName))
 			{
-				_serial->print("Deleting File: ");
-				_serial->println(fileName);
+				File entry = sd.open(fileName, O_READ);
 
-				myFile.open(fileName, O_WRITE);
-				myFile.remove();
-			}
-			else if (!strcmp(fileName, "all"))
-			{
-				char fileName_[20];
-
-				while (true)
+				if (entry.isDirectory())
+					deleteDirectory(entry, fileName);
+				else
 				{
-					File entry = root.openNextFile();
+					_serial->print("Deleting File: ");
+					_serial->println(fileName);
 
-					if (!entry)
-						break;
-
-					entry.getName(fileName_, sizeof(fileName_));
-
-					if (!entry.isDirectory())
-					{
-						_serial->print("Deleting: ");
-						_serial->println(fileName_);
-
-						myFile.open(fileName_, O_WRITE);
-						myFile.remove();
-					}
-
-					entry.close();
+					myFile.open(fileName, O_WRITE);
+					myFile.remove();
 				}
 			}
+			else if (!strcmp(fileName, "all"))
+				deleteDirectory(root);
 			else
 			{
 				_serial->print(fileName);
 				_serial->println(" not found");
 			}
+
+			_serial->println(F("--------------------------------------------------"));
 		}
 		else if (sd.exists(input))
 		{
@@ -172,10 +165,11 @@ void Logger::handleCmds()
 			myFile.close();
 
 			_serial->println(F("--------------------------------------------------"));
-			_serial->println();
 		}
 		else
 			_serial->println('?');
+
+		_serial->println();
 	}
 }
 
@@ -243,6 +237,54 @@ void Logger::printDirectory(File dir, const int& numTabs)
 		}
 
 		entry.close();
+	}
+}
+
+
+
+
+void Logger::deleteDirectory(File dir, const char* path)
+{
+	char fullPath[100];
+
+	if (dir.isDirectory())
+	{
+		char fileName[40];
+
+		while (true)
+		{
+			File entry = dir.openNextFile();
+
+			if (!entry)
+				break;
+
+			entry.getName(fileName, sizeof(fileName));
+
+			for (byte i=0; i<sizeof(fullPath); i++)
+				fullPath[i] = '\0';
+
+			memcpy(fullPath, path, strlen(path));
+			strcat(fullPath, "/");
+			strcat(fullPath, fileName);
+
+			// don't delete the volume info files
+			if (!strstr(fullPath, "System Volume Infor"))
+			{
+				if (entry.isDirectory())
+					deleteDirectory(entry, fullPath);
+				else if (strcmp(fileName, filename))
+				{
+					_serial->print("Deleting: ");
+					_serial->println(fullPath);
+
+					myFile.open(fullPath, O_WRITE);
+					myFile.remove();
+				}
+			}
+
+			entry.close();
+		}
+		sd.rmdir(path);
 	}
 }
 
