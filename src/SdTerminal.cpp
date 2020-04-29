@@ -132,7 +132,7 @@ void Logger::handleCmds()
 
 				if (entry.isDirectory())
 					deleteDirectory(entry, fileName);
-				else
+				else if (strcmp(fileName, filename))
 				{
 					_serial->print("Deleting File: ");
 					_serial->println(fileName);
@@ -140,6 +140,8 @@ void Logger::handleCmds()
 					myFile.open(fileName, O_WRITE);
 					myFile.remove();
 				}
+				else
+					_serial->println("Can't delete current log");
 			}
 			else if (!strcmp(fileName, "all"))
 				deleteDirectory(root);
