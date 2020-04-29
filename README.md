@@ -1,4 +1,5 @@
 # SdTerminal
+[![GitHub version](https://badge.fury.io/gh/PowerBroker2%2FSdTerminal.svg)](https://badge.fury.io/gh/PowerBroker2%2FSdTerminal) [![arduino-library-badge](https://www.ardu-badge.com/badge/SdTerminal.svg?)](https://www.ardu-badge.com/SdTerminal)<br/><br/>
 Basic terminal interface for Arduino SD card logging/file management. Allows basic file management of an SD card with an Arduino through serial commands.
 
 ## Commands:
