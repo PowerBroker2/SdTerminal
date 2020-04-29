@@ -91,7 +91,7 @@ void Logger::handleCmds()
 
 		readInput(input, sizeof(input));
 
-		Serial.println(input);
+		_serial->println(input);
 
 		if (!strcmp(input, "ls"))
 		{
