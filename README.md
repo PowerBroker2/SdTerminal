@@ -5,6 +5,8 @@ Basic terminal interface for Arduino SD card logging/file management. Allows bas
 ## Commands:
 
 For more information on a specific command, type help command-name<br/>
+`>`     - Create file if it doesn't already exist<br/>
+`ap`    - Append a line to an existing file<br/>
 `cp`    - Copy a file to another location<br/>
 `echo`  - Turn on or off echoing user commands<br/>
 `help`  - Provide info on commands. Can specify a specific command for help<br/>
