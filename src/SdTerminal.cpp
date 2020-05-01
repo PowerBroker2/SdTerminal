@@ -353,7 +353,84 @@ void Logger::handle_MKDIR(char input[])
 
 void Logger::handle_CP(char input[])
 {
-	//TODO
+	char* srcFullPath = findArg(input, 1);
+	char* destPath = findArg(input, 2);
+
+	if (sd.exists(srcFullPath))
+	{
+		File file = sd.open(srcFullPath);
+
+		// make sure we only copy to a dir and not a file
+		if (!strstr(destPath, "."))
+		{
+			if (!sd.exists(destPath))
+				sd.mkdir(destPath);
+
+			if (file.isDirectory())
+			{
+				while (true)
+				{
+					File sub = file.openNextFile();
+
+					if (!sub)
+						break;
+
+					if (sub.isDirectory())
+					{
+						//TODO
+					}
+					else
+					{
+						//TODO
+					}
+				}
+			}
+			else
+			{
+				//writeout
+				file.open(srcFullPath, FILE_READ);
+				file2.open(file.name(), File_WRITE)
+
+				int data;
+				while ((data = file.read()) >= 0)
+					_serial->write(data);
+
+				myFile.close();
+				//writeout
+			}
+
+			if (sd.exists(destPath))
+			{
+				_serial->print(srcFullPath);
+				_serial->print(F(" copied to "));
+				_serial->println(destPath);
+			}
+			else
+			{
+				_serial->print(F("Failed to copy "));
+				_serial->print(srcFullPath);
+				_serial->print(F(" to "));
+				_serial->println(destPath);
+			}
+		}
+		else
+		{
+			_serial->print(destPath);
+			_serial->println(F(" is not a directory"));
+		}
+	}
+	else
+	{
+		if (!sd.exists(srcFullPath))
+		{
+			_serial->println(srcFullPath);
+			_serial->println(F(" does not exists"));
+		}
+	}
+
+	// garbage collection
+	free(srcFullPath);
+	free(destPath);
 }
 
 
