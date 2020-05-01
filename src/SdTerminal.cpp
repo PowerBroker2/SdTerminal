@@ -93,86 +93,198 @@ void Logger::handleCmds()
 {
 	if (_serial->available() && initialized)
 	{
-		char input[50] = { '\0' };
+		char input[MAX_INPUT_LEN] = { '\0' };
 
 		readInput(input, sizeof(input));
 
-		_serial->println(input);
+		if (echo)
+			_serial->println(input);
 
-		if (!strcmp(input, "ls"))
-		{
-			_serial->println(F("--------------------------------------------------"));
+		_serial->println(H_RULE);
 
-			root = sd.open("/");
-			printDirectory(root, 0);
-
-			_serial->println(F("--------------------------------------------------"));
-		}
-		else if (strstr(input, "rm "))
-		{
-			_serial->println(F("--------------------------------------------------"));
-
-			char* p = strstr(input, "rm ") + 3;
-
-			char fileName[40] = { '\0' };
-
-			for (byte i = 0; i < sizeof(fileName); i++)
-			{
-				fileName[i] = *p;
-
-				if (*p == '\0')
-					break;
-
-				p++;
-			}
-			
-			if (sd.exists(fileName))
-			{
-				File entry = sd.open(fileName, O_READ);
-
-				if (entry.isDirectory())
-					deleteDirectory(entry, fileName);
-				else if (strcmp(fileName, filename))
-				{
-					_serial->print("Deleting File: ");
-					_serial->println(fileName);
-
-					myFile.open(fileName, O_WRITE);
-					myFile.remove();
-				}
-				else
-					_serial->println("Can't delete current log");
-			}
-			else if (!strcmp(fileName, "all"))
-				deleteDirectory(root);
-			else
-			{
-				_serial->print(fileName);
-				_serial->println(" not found");
-			}
-
-			_serial->println(F("--------------------------------------------------"));
-		}
+		if (startsWith(input, "help"))
+			handle_HELP(input);
+		else if (startsWith(input, "ls"))
+			handle_LS(input);
+		else if (startsWith(input, "rm "))
+			handle_RM(input);
+		else if (startsWith(input, "mv "))
+			handle_MV(input);
+		else if (startsWith(input, "mkdir "))
+			handle_MKDIR(input);
+		else if (startsWith(input, "cp "))
+			handle_CP(input);
+		else if (startsWith(input, "echo "))
+			handle_ECHO(input);
 		else if (sd.exists(input))
-		{
-			_serial->println(F("--------------------------------------------------"));
-			_serial->print(input); _serial->println(" found:");
-
-			myFile.open(input, FILE_READ);
-
-			int data;
-			while ((data = myFile.read()) >= 0)
-				_serial->write(data);
-
-			myFile.close();
-
-			_serial->println(F("--------------------------------------------------"));
-		}
+			handle_PRINT(input);
 		else
 			_serial->println('?');
 
+		_serial->println(H_RULE);
 		_serial->println();
 	}
+}
+
+
+
+
+void Logger::handle_HELP(char input[])
+{
+	char* arg1 = findArg(input);
+
+	if (arg1 != NULL)
+	{
+		if (strstr(arg1, "<filepath>"))
+			_serial->println(F("<filepath> - Print the contents of the given file."));
+		else if (strstr(arg1, "cp"))
+			_serial->println(F("cp src dest - Copy file src to dest."));
+		else if (strstr(arg1, "echo"))
+			_serial->println(F("echo cmd - Turn on or off echoing user commands. Arg cmd can be either on or off."));
+		else if (strstr(arg1, "help"))
+			_serial->println(F("help (optional)cmd - Provide info on commands. Can specify a specific command for help."));
+		else if (strstr(arg1, "ls"))
+			_serial->println(F("ls (optional)dir - List the contents of the card. Can specify dir for listing."));
+		else if (strstr(arg1, "mkdir"))
+			_serial->println(F("mkdir dir - Make a new directory at location dir."));
+		else if (strstr(arg1, "mv"))
+			_serial->println(F("mv src dest - Move file src to location dest."));
+		else if (strstr(arg1, "rm"))
+			_serial->println(F("rm path - Remove a file or dir as specified by path"));
+	}
+	else
+	{
+		_serial->println(F("For more information on a specific command, type help command-name"));
+		_serial->println(F("<filepath> - Print the contents of the given file."));
+		_serial->println(F("cp         - Copy a file to another location."));
+		_serial->println(F("echo       - Turn on or off echoing user commands."));
+		_serial->println(F("help       - Provide info on commands. Can specify a specific command for help."));
+		_serial->println(F("ls         - List the contents of the card. Can specify a specific dir for listing."));
+		_serial->println(F("mkdir      - Make a new directory at a specific location."));
+		_serial->println(F("mv         - Move or rename a file."));
+		_serial->println(F("rm         - Remove a file or dir"));
+	}
+}
+
+
+
+
+void Logger::handle_LS(char input[])
+{
+	char* arg1 = findArg(input);
+
+	if (arg1 != NULL)
+	{
+		File DIR = sd.open(arg1);
+		printDirectory(DIR, 0);
+	}
+	else
+	{
+		root = sd.open("/");
+		printDirectory(root, 0);
+	}
+}
+
+
+
+
+void Logger::handle_RM(char input[])
+{
+	char* nameArg = findArg(input);
+
+	if (sd.exists(nameArg))
+	{
+		File entry = sd.open(nameArg, O_READ);
+
+		if (entry.isDirectory())
+			deleteDirectory(entry, nameArg);
+		else if (strcmp(nameArg, filename))
+		{
+			myFile.open(nameArg, O_WRITE);
+			myFile.remove();
+
+			if (!sd.exists(nameArg))
+			{
+				_serial->print(F("Deleted: "));
+				_serial->println(nameArg);
+			}
+			else
+			{
+				_serial->print(F("Failed to delete: "));
+				_serial->println(nameArg);
+			}
+		}
+		else
+			_serial->println(F("Can't delete current log"));
+	}
+	else if (!strcmp(nameArg, "all"))
+		deleteDirectory(root);
+	else
+	{
+		_serial->print(nameArg);
+		_serial->println(F(" not found"));
+	}
+}
+
+
+
+
+void Logger::handle_MV(char input[])
+{
+	//TODO
+}
+
+
+
+
+void Logger::handle_MKDIR(char input[])
+{
+	//TODO
+}
+
+
+
+
+void Logger::handle_CP(char input[])
+{
+	//TODO
+}
+
+
+
+
+void Logger::handle_ECHO(char input[])
+{
+	char* arg1 = findArg(input);
+
+	if (strstr(arg1, "on"))
+	{
+		echo = true;
+		_serial->println(F("Echo turned on"));
+	}
+	else if (strstr(arg1, "off"))
+	{
+		echo = false;
+		_serial->println(F("Echo turned off"));
+	}
+	else
+		_serial->println('?');
+}
+
+
+
+
+void Logger::handle_PRINT(char input[])
+{
+	_serial->print(input); _serial->println(F(" found:"));
+
+	myFile.open(input, FILE_READ);
+
+	int data;
+	while ((data = myFile.read()) >= 0)
+		_serial->write(data);
+
+	myFile.close();
 }
 
 
@@ -205,6 +317,45 @@ void Logger::readInput(char input[], const uint8_t& inputSize)
 		if (msTimer.fire())
 			break;
 	}
+}
+
+
+
+
+bool Logger::startsWith(const char scan[], const char target[])
+{
+	uint16_t scanLen = strlen(scan);
+	uint16_t targetLen = strlen(target);
+
+	if (scanLen >= targetLen)
+	{
+		for (uint16_t i=0; i<targetLen; i++)
+			if (scan[i] != target[i])
+				return false;
+		return true;
+	}
+	
+	return false;
+}
+
+
+
+
+char* Logger::findArg(char input[], uint8_t argNum)
+{
+	char* p = input;
+
+	for (uint8_t i=0; i<argNum; i++)
+	{
+		char* tempP = strstr(p, " ");
+
+		if (!tempP)
+			return NULL;
+
+		p = tempP + 1;
+	}
+
+	return p;
 }
 
 
@@ -276,11 +427,19 @@ void Logger::deleteDirectory(File dir, const char* path)
 					deleteDirectory(entry, fullPath);
 				else if (strcmp(fileName, filename))
 				{
-					_serial->print("Deleting: ");
-					_serial->println(fullPath);
-
 					myFile.open(fullPath, O_WRITE);
 					myFile.remove();
+
+					if (!sd.exists(fullPath))
+					{
+						_serial->print(F("Deleted: "));
+						_serial->println(fullPath);
+					}
+					else
+					{
+						_serial->print(F("Failed to delete: "));
+						_serial->println(fullPath);
+					}
 				}
 			}
 
