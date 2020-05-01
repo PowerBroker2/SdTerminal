@@ -135,22 +135,27 @@ void Logger::handle_HELP(char input[])
 
 	if (arg1 != NULL)
 	{
-		if (strstr(arg1, "<filepath>"))
+		if (!strcmp(arg1, "<filepath>"))
 			_serial->println(F("<filepath> - Print the contents of the given file."));
-		else if (strstr(arg1, "cp"))
+		else if (!strcmp(arg1, "cp"))
 			_serial->println(F("cp src dest - Copy file src to dest."));
-		else if (strstr(arg1, "echo"))
+		else if (!strcmp(arg1, "echo"))
 			_serial->println(F("echo cmd - Turn on or off echoing user commands. Arg cmd can be either on or off."));
-		else if (strstr(arg1, "help"))
+		else if (!strcmp(arg1, "help"))
 			_serial->println(F("help (optional)cmd - Provide info on commands. Can specify a specific command for help."));
-		else if (strstr(arg1, "ls"))
+		else if (!strcmp(arg1, "ls"))
 			_serial->println(F("ls (optional)dir - List the contents of the card. Can specify dir for listing."));
-		else if (strstr(arg1, "mkdir"))
+		else if (!strcmp(arg1, "mkdir"))
 			_serial->println(F("mkdir dir - Make a new directory at location dir."));
-		else if (strstr(arg1, "mv"))
+		else if (!strcmp(arg1, "mv"))
 			_serial->println(F("mv src dest - Move file src to location dest."));
-		else if (strstr(arg1, "rm"))
+		else if (!strcmp(arg1, "rm"))
 			_serial->println(F("rm path - Remove a file or dir as specified by path"));
+		else
+		{
+			_serial->print(F("Invalid command: "));
+			_serial->println(arg1);
+		}
 	}
 	else
 	{
@@ -175,8 +180,23 @@ void Logger::handle_LS(char input[])
 
 	if (arg1 != NULL)
 	{
-		File DIR = sd.open(arg1);
-		printDirectory(DIR, 0);
+		if (sd.exists(arg1))
+		{
+			File dir = sd.open(arg1);
+
+			if (dir.isDirectory())
+				printDirectory(dir, 0);
+			else
+			{
+				_serial->print(arg1);
+				_serial->println(F(" is not a directory"));
+			}
+		}
+		else
+		{
+			_serial->print(arg1);
+			_serial->println(F(" does not exist"));
+		}
 	}
 	else
 	{
@@ -231,7 +251,27 @@ void Logger::handle_RM(char input[])
 
 void Logger::handle_MV(char input[])
 {
-	//TODO
+	char* arg1 = findArg(input, 1);
+	char* arg2 = findArg(input, 2);
+
+	if (sd.exists(arg1) && !sd.exists(arg2))
+	{
+		//
+	}
+	else
+	{
+		if (!sd.exists(arg1))
+		{
+			_serial->println(arg2);
+			_serial->println(F(" does not exists"));
+		}
+		
+		if (sd.exists(arg2))
+		{
+			_serial->println(arg2);
+			_serial->println(F(" already exists"));
+		}
+	}
 }
 
 
@@ -343,19 +383,37 @@ bool Logger::startsWith(const char scan[], const char target[])
 
 char* Logger::findArg(char input[], uint8_t argNum)
 {
-	char* p = input;
+	char* argP = input;
+	char* divP = NULL;
+	char* returnStr;
 
 	for (uint8_t i=0; i<argNum; i++)
 	{
-		char* tempP = strstr(p, " ");
+		divP = strstr(argP, " ");
 
-		if (!tempP)
+		if (!divP)
 			return NULL;
 
-		p = tempP + 1;
+		argP = divP + 1;
 	}
 
-	return p;
+	divP = strstr(argP, " ");
+
+	if (divP)
+	{
+		uint32_t argLen = divP - argP + 1;
+
+		returnStr = (char*)malloc(argLen);
+		memcpy(returnStr, argP, argLen);
+		returnStr[argLen - 1] = '\0';
+	}
+	else
+	{
+		returnStr = (char *)malloc(strlen(argP) + 1);
+		memcpy(returnStr, argP, strlen(argP) + 1);
+	}
+
+	return returnStr;
 }
 
 
