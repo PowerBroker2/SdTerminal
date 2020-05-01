@@ -4,10 +4,15 @@ Basic terminal interface for Arduino SD card logging/file management. Allows bas
 
 ## Commands:
 
-`ls` -- List all files on SD card <br/>
-`rm all` -- Delete all files on SD card except for the file currently being used for datalogging <br/>
-`rm <filename>` -- Delete the specified file on the SD card except for the file currently being used for datalogging <br/>
-`<filename>` -- Display the entire contents of the file
+For more information on a specific command, type help command-name<br/>
+`cp`    - Copy a file to another location<br/>
+`echo`  - Turn on or off echoing user commands<br/>
+`help`  - Provide info on commands. Can specify a specific command for help<br/>
+`ls`    - List the contents of the card. Can specify a specific dir for listing<br/>
+`mkdir` - Make a new directory at a specific location<br/>
+`mv`    - Move or rename a file<br/>
+`print` - Print the contents of the given file<br/>
+`rm`    - Remove a file or dir
 
 ## Notes:
 
