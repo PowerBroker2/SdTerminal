@@ -388,14 +388,14 @@ void Logger::handle_CP(char input[])
 			else
 			{
 				//writeout
-				file.open(srcFullPath, FILE_READ);
-				file2.open(file.name(), File_WRITE)
+				/*file.open(srcFullPath, FILE_READ);
+				//file2.open(file.name(), FILE_WRITE);
 
 				int data;
 				while ((data = file.read()) >= 0)
 					_serial->write(data);
 
-				myFile.close();
+				myFile.close();*/
 				//writeout
 			}
 
