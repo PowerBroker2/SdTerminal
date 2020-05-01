@@ -310,10 +310,12 @@ void Terminal::handle_CP(char input[])
 
 			if (srcFile.isDirectory())
 			{
+				srcFile.close();
 				copyDir(fullSrcPath, fullDestPath);
 			}
 			else
 			{
+				srcFile.close();
 				copyFile(fullSrcPath, fullDestPath);
 			}
 
@@ -535,12 +537,25 @@ char* Terminal::join(char path[], char add[])
 
 void Terminal::copyFile(char fullSrcPath[], char fullDestPath[])
 {
-	File srcFile = sd.open(fullDestPath, FILE_READ);
+	File srcFile = sd.open(fullSrcPath, FILE_READ);
 	File destFile = sd.open(fullDestPath, FILE_WRITE);
 
-	int data;
-	while ((data = srcFile.read()) >= 0)
-		destFile.write(data);
+	if (!srcFile)
+	{
+		_serial->print("Error opening source file at ");
+		_serial->println(fullSrcPath);
+	}
+
+	if (!destFile)
+	{
+		_serial->println("Error opening destination file at ");
+		_serial->println(fullDestPath);
+	}
+
+	size_t n;
+	uint8_t buf[64];
+	while ((n = srcFile.read(buf, sizeof(buf))) > 0)
+		destFile.write(buf, n);
 
 	srcFile.close();
 	destFile.close();
