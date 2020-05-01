@@ -68,7 +68,6 @@ private:
 	void readInput(char input[], const uint8_t& inputSize);
 	bool startsWith(const char scan[], const char target[]);
 	char* findArg(char input[], uint8_t argNum=1);
-	void printDirectory(File dir, const int& numTabs);
 	void deleteDirectory(File dir, const char* path="");
 	uint8_t numOccur(char* input, const uint16_t& len, const char& target=',');
 };
