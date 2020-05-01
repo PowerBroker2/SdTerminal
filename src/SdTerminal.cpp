@@ -3,15 +3,12 @@
 
 
 
-bool Logger::begin(Log_Meta& logMeta, Stream& stream, const uint16_t& timeout)
+bool Terminal::begin(Stream& stream, uint8_t csPin, SPISettings spiSettings, const uint16_t& timeout)
 {
-	metaP = &logMeta;
 	_serial = &stream;
 	_timeout = timeout;
 
 	msTimer.begin(_timeout);
-
-	numColumns = numOccur(metaP->headerRow, sizeof(metaP->headerRow)) + 1;
 
 	return init();
 }
@@ -19,31 +16,15 @@ bool Logger::begin(Log_Meta& logMeta, Stream& stream, const uint16_t& timeout)
 
 
 
-bool Logger::init()
+bool Terminal::init(uint8_t csPin, SPISettings spiSettings)
 {
-	unsigned int count = 1;
-
-	if (sd.begin())
-	{
-		sprintf(filename, metaP->nameTemplate, count);
-
-		while (sd.exists(filename))
-		{
-			count++;
-			sprintf(filename, metaP->nameTemplate, count);
-		}
-
-		myFile.open(filename, FILE_WRITE);
-		myFile.println(metaP->headerRow);
-		myFile.close();
-
-		initialized = true;
-	}
-	else
+	if (!sd.begin())
 	{
 		initialized = false;
 		_serial->println("SD Card Init Failed");
 	}
+	else
+		initialized = true;
 
 	return initialized;
 }
@@ -51,45 +32,8 @@ bool Logger::init()
 
 
 
-void Logger::log(const float* data, const uint16_t& dataLen)
-{
-	if (initialized)
-	{
-		myFile.open(filename, FILE_WRITE);
 
-		for (uint16_t i = 0; i < dataLen; i++)
-		{
-			myFile.print(data[i]);
-
-			if ((i != (dataLen - 1)) && (i != (numColumns - 1)))
-				myFile.print(',');
-			else if (i == (numColumns - 1))
-				break;
-		}
-
-		myFile.println();
-		myFile.close();
-	}
-}
-
-
-
-
-void Logger::log(const char* data)
-{
-	if (initialized)
-	{
-		myFile.open(filename, FILE_WRITE);
-		myFile.println(data);
-		myFile.close();
-	}
-}
-
-
-
-
-
-void Logger::handleCmds()
+void Terminal::handleCmds()
 {
 	if (_serial->available() && initialized)
 	{
@@ -129,9 +73,9 @@ void Logger::handleCmds()
 
 
 
-void Logger::handle_HELP(char input[])
+void Terminal::handle_HELP(char input[])
 {
-	char* arg1 = findArg(input);
+	char* arg1 = findSubStr(input);
 
 	if (arg1 != NULL)
 	{
@@ -177,9 +121,9 @@ void Logger::handle_HELP(char input[])
 
 
 
-void Logger::handle_LS(char input[])
+void Terminal::handle_LS(char input[])
 {
-	char* arg1 = findArg(input);
+	char* arg1 = findSubStr(input);
 
 	if (arg1 != NULL)
 	{
@@ -214,9 +158,9 @@ void Logger::handle_LS(char input[])
 
 
 
-void Logger::handle_RM(char input[])
+void Terminal::handle_RM(char input[])
 {
-	char* nameArg = findArg(input);
+	char* nameArg = findSubStr(input);
 
 	if (sd.exists(nameArg))
 	{
@@ -237,24 +181,20 @@ void Logger::handle_RM(char input[])
 				_serial->println(nameArg);
 			}
 		}
-		else if (strcmp(nameArg, filename))
-		{
-			myFile.open(nameArg, O_WRITE);
-			myFile.remove();
 
-			if (!sd.exists(nameArg))
-			{
-				_serial->print(F("Deleted: "));
-				_serial->println(nameArg);
-			}
-			else
-			{
-				_serial->print(F("Failed to delete: "));
-				_serial->println(nameArg);
-			}
+		myFile.open(nameArg, O_WRITE);
+		myFile.remove();
+
+		if (!sd.exists(nameArg))
+		{
+			_serial->print(F("Deleted: "));
+			_serial->println(nameArg);
 		}
 		else
-			_serial->println(F("Can't delete current log"));
+		{
+			_serial->print(F("Failed to delete: "));
+			_serial->println(nameArg);
+		}
 	}
 	else if (!strcmp(nameArg, "all"))
 		deleteDirectory(root);
@@ -271,10 +211,10 @@ void Logger::handle_RM(char input[])
 
 
 
-void Logger::handle_MV(char input[])
+void Terminal::handle_MV(char input[])
 {
-	char* arg1 = findArg(input, 1);
-	char* arg2 = findArg(input, 2);
+	char* arg1 = findSubStr(input, 1);
+	char* arg2 = findSubStr(input, 2);
 
 	if (sd.exists(arg1) && !sd.exists(arg2))
 	{
@@ -319,9 +259,9 @@ void Logger::handle_MV(char input[])
 
 
 
-void Logger::handle_MKDIR(char input[])
+void Terminal::handle_MKDIR(char input[])
 {
-	char* arg1 = findArg(input);
+	char* arg1 = findSubStr(input);
 
 	if (!sd.exists(arg1))
 	{
@@ -351,14 +291,16 @@ void Logger::handle_MKDIR(char input[])
 
 
 
-void Logger::handle_CP(char input[])
+void Terminal::handle_CP(char input[])
 {
-	char* srcFullPath = findArg(input, 1);
-	char* destPath = findArg(input, 2);
+	char* fullSrcPath = findSubStr(input, 1);
+	char* destPath = findSubStr(input, 2);
+	char* basename = findBasename(fullSrcPath);
+	char* fullDestPath = join(destPath, basename);
 
-	if (sd.exists(srcFullPath))
+	if (sd.exists(fullSrcPath))
 	{
-		File file = sd.open(srcFullPath);
+		File srcFile = sd.open(fullSrcPath);
 
 		// make sure we only copy to a dir and not a file
 		if (!strstr(destPath, "."))
@@ -366,49 +308,25 @@ void Logger::handle_CP(char input[])
 			if (!sd.exists(destPath))
 				sd.mkdir(destPath);
 
-			if (file.isDirectory())
+			if (srcFile.isDirectory())
 			{
-				while (true)
-				{
-					File sub = file.openNextFile();
-
-					if (!sub)
-						break;
-
-					if (sub.isDirectory())
-					{
-						//TODO
-					}
-					else
-					{
-						//TODO
-					}
-				}
+				copyDir(fullSrcPath, fullDestPath);
 			}
 			else
 			{
-				//writeout
-				/*file.open(srcFullPath, FILE_READ);
-				//file2.open(file.name(), FILE_WRITE);
-
-				int data;
-				while ((data = file.read()) >= 0)
-					_serial->write(data);
-
-				myFile.close();*/
-				//writeout
+				copyFile(fullSrcPath, fullDestPath);
 			}
 
 			if (sd.exists(destPath))
 			{
-				_serial->print(srcFullPath);
+				_serial->print(fullSrcPath);
 				_serial->print(F(" copied to "));
 				_serial->println(destPath);
 			}
 			else
 			{
 				_serial->print(F("Failed to copy "));
-				_serial->print(srcFullPath);
+				_serial->print(fullSrcPath);
 				_serial->print(F(" to "));
 				_serial->println(destPath);
 			}
@@ -421,24 +339,26 @@ void Logger::handle_CP(char input[])
 	}
 	else
 	{
-		if (!sd.exists(srcFullPath))
+		if (!sd.exists(fullSrcPath))
 		{
-			_serial->println(srcFullPath);
+			_serial->print(fullSrcPath);
 			_serial->println(F(" does not exists"));
 		}
 	}
 
 	// garbage collection
-	free(srcFullPath);
+	free(fullSrcPath);
 	free(destPath);
+	free(basename);
+	free(fullDestPath);
 }
 
 
 
 
-void Logger::handle_ECHO(char input[])
+void Terminal::handle_ECHO(char input[])
 {
-	char* arg1 = findArg(input);
+	char* arg1 = findSubStr(input);
 
 	if (strstr(arg1, "on"))
 	{
@@ -460,9 +380,9 @@ void Logger::handle_ECHO(char input[])
 
 
 
-void Logger::handle_PRINT(char input[])
+void Terminal::handle_PRINT(char input[])
 {
-	char* arg1 = findArg(input);
+	char* arg1 = findSubStr(input);
 
 	if (sd.exists(arg1))
 	{
@@ -489,7 +409,7 @@ void Logger::handle_PRINT(char input[])
 
 
 
-void Logger::readInput(char input[], const uint8_t& inputSize)
+void Terminal::readInput(char input[], const uint8_t& inputSize)
 {
 	char c;
 	uint8_t i = 0;
@@ -521,7 +441,7 @@ void Logger::readInput(char input[], const uint8_t& inputSize)
 
 
 
-bool Logger::startsWith(const char scan[], const char target[])
+bool Terminal::startsWith(const char scan[], const char target[])
 {
 	uint16_t scanLen = strlen(scan);
 	uint16_t targetLen = strlen(target);
@@ -540,15 +460,15 @@ bool Logger::startsWith(const char scan[], const char target[])
 
 
 
-char* Logger::findArg(char input[], uint8_t argNum)
+char* Terminal::findSubStr(char input[], uint8_t place, const char* delim)
 {
 	char* argP = input;
 	char* divP = NULL;
 	char* returnStr;
 
-	for (uint8_t i=0; i<argNum; i++)
+	for (uint8_t i=0; i< place; i++)
 	{
-		divP = strstr(argP, " ");
+		divP = strstr(argP, delim);
 
 		if (!divP)
 			return NULL;
@@ -556,7 +476,7 @@ char* Logger::findArg(char input[], uint8_t argNum)
 		argP = divP + 1;
 	}
 
-	divP = strstr(argP, " ");
+	divP = strstr(argP, delim);
 
 	if (divP)
 	{
@@ -578,7 +498,66 @@ char* Logger::findArg(char input[], uint8_t argNum)
 
 
 
-void Logger::deleteDirectory(File dir, const char* path)
+char* Terminal::findBasename(char path[])
+{
+	uint8_t numLevels = numOccur(path, '/');
+
+	if (path[strlen(path) - 1] == '/')
+		numLevels--;
+
+	if (path[0] == '/')
+		numLevels++;
+
+	return findSubStr(path, numLevels, "/");
+}
+
+
+
+
+char* Terminal::join(char path[], char add[])
+{
+	uint16_t pathLen = strlen(path);
+	uint16_t addLen = strlen(add);
+	uint16_t joinedPathLen = pathLen + addLen + 1; // add one for joining slash
+
+	char* joinedPath = (char*)malloc(joinedPathLen);
+
+	if (path[pathLen-1] == '/')
+		sprintf(joinedPath, "%s%s", path, add);
+	else
+		sprintf(joinedPath, "%s/%s", path, add);
+
+	return joinedPath;
+}
+
+
+
+
+void Terminal::copyFile(char fullSrcPath[], char fullDestPath[])
+{
+	File srcFile = sd.open(fullDestPath, FILE_READ);
+	File destFile = sd.open(fullDestPath, FILE_WRITE);
+
+	int data;
+	while ((data = srcFile.read()) >= 0)
+		destFile.write(data);
+
+	srcFile.close();
+	destFile.close();
+}
+
+
+
+
+void Terminal::copyDir(char fullSrcPath[], char fullDestPath[])
+{
+	//TODO
+}
+
+
+
+
+void Terminal::deleteDirectory(File dir, const char* path)
 {
 	char fullPath[100];
 
@@ -607,7 +586,7 @@ void Logger::deleteDirectory(File dir, const char* path)
 			{
 				if (file.isDirectory())
 					deleteDirectory(file, fullPath);
-				else if (strcmp(fileName, filename))
+				else
 				{
 					myFile.open(fullPath, O_WRITE);
 					myFile.remove();
@@ -634,7 +613,7 @@ void Logger::deleteDirectory(File dir, const char* path)
 
 
 
-uint8_t Logger::numOccur(char* input, const uint16_t& len, const char& target)
+uint8_t Terminal::numOccur(char* input, const char& target)
 {
 	char* p = input;
 	uint8_t count = 0;
