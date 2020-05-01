@@ -62,6 +62,10 @@ void Terminal::handleCmds()
 			handle_ECHO(input);
 		else if (startsWith(input, "print "))
 			handle_PRINT(input);
+		else if (startsWith(input, "> "))
+			handle_CREATE(input);
+		else if (startsWith(input, "ap "))
+			handle_AP(input);
 		else
 			_serial->println('?');
 
@@ -79,7 +83,11 @@ void Terminal::handle_HELP(char input[])
 
 	if (arg1 != NULL)
 	{
-		if (!strcmp(arg1, "print"))
+		if (!strcmp(arg1, ">"))
+			_serial->println(F("> file - Create file if it doesn't already exist."));
+		else if (!strcmp(arg1, "ap"))
+			_serial->println(F("ap file line - Append line to the contents of file."));
+		else if (!strcmp(arg1, "print"))
 			_serial->println(F("print file - Print the contents of file."));
 		else if (!strcmp(arg1, "cp"))
 			_serial->println(F("cp src dest - Copy file src to dest."));
@@ -104,6 +112,8 @@ void Terminal::handle_HELP(char input[])
 	else
 	{
 		_serial->println(F("For more information on a specific command, type help command-name"));
+		_serial->println(F(">     - Create file if it doesn't already exist."));
+		_serial->println(F("ap    - Append a line to an existing file."));
 		_serial->println(F("cp    - Copy a file to another location."));
 		_serial->println(F("echo  - Turn on or off echoing user commands."));
 		_serial->println(F("help  - Provide info on commands. Can specify a specific command for help."));
@@ -182,8 +192,9 @@ void Terminal::handle_RM(char input[])
 			}
 		}
 
-		myFile.open(nameArg, O_WRITE);
-		myFile.remove();
+		file.close();
+		file = sd.open(nameArg, O_WRITE);
+		file.remove();
 
 		if (!sd.exists(nameArg))
 		{
@@ -376,13 +387,14 @@ void Terminal::handle_PRINT(char input[])
 	{
 		_serial->print(arg1); _serial->println(F(" found:"));
 
-		myFile.open(arg1, FILE_READ);
+		File file = sd.open(arg1, FILE_READ);
 
-		int data;
-		while ((data = myFile.read()) >= 0)
-			_serial->write(data);
+		size_t n;
+		uint8_t buf[64];
+		while ((n = file.read(buf, sizeof(buf))) > 0)
+			_serial->write(buf, n);
 
-		myFile.close();
+		file.close();
 	}
 	else
 	{
@@ -392,6 +404,71 @@ void Terminal::handle_PRINT(char input[])
 
 	// garbage collection
 	free(arg1);
+}
+
+
+
+
+void Terminal::handle_CREATE(char input[])
+{
+	char* arg1 = findSubStr(input);
+
+	if (!sd.exists(arg1))
+	{
+		File newFile = sd.open(arg1, FILE_WRITE);
+		newFile.close();
+
+		if (sd.exists(arg1))
+		{
+			_serial->print(F("Created "));
+			_serial->println(arg1);
+		}
+		else
+		{
+			_serial->print(F("Failed to create "));
+			_serial->println(arg1);
+		}
+	}
+	else
+	{
+		_serial->print(arg1);
+		_serial->println(F(" already exists"));
+	}
+
+	// garbage collection
+	free(arg1);
+}
+
+
+
+
+void Terminal::handle_AP(char input[])
+{
+	char* arg1 = findSubStr(input, 1);
+	char* arg2 = findSubStr(input, 2);
+
+	char* line = strstr(input, arg2);
+
+	if (sd.exists(arg1))
+	{
+		File newFile = sd.open(arg1, FILE_WRITE);
+		newFile.println(line);
+		newFile.close();
+
+		_serial->print(F("Wrote\n\t"));
+		_serial->println(line);
+		_serial->println(F("to\n\t"));
+		_serial->println(arg1);
+	}
+	else
+	{
+		_serial->print(arg1);
+		_serial->println(F(" does not exist"));
+	}
+
+	// garbage collection
+	free(arg1);
+	free(arg2);
 }
 
 
@@ -655,8 +732,8 @@ void Terminal::deleteDirectory(File dir, const char* path)
 					deleteDirectory(file, fullPath);
 				else
 				{
-					myFile.open(fullPath, O_WRITE);
-					myFile.remove();
+					file.open(fullPath, O_WRITE);
+					file.remove();
 
 					if (!sd.exists(fullPath))
 					{

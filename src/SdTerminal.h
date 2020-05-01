@@ -34,7 +34,6 @@ private:
 	Stream* _serial;
 	FireTimer msTimer;
 	SdFatSdioEX sd;
-	SdFile myFile;
 	File root;
 
 	uint16_t _timeout;
@@ -51,6 +50,8 @@ private:
 	void handle_CP(char input[]);
 	void handle_ECHO(char input[]);
 	void handle_PRINT(char input[]);
+	void handle_CREATE(char input[]);
+	void handle_AP(char input[]);
 
 	void readInput(char input[], const uint8_t& inputSize);
 	bool startsWith(const char scan[], const char target[]);
