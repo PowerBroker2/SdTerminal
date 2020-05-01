@@ -240,13 +240,13 @@ void Terminal::handle_MV(char input[])
 	{
 		if (!sd.exists(arg1))
 		{
-			_serial->println(arg2);
+			_serial->print(arg2);
 			_serial->println(F(" does not exists"));
 		}
 		
 		if (sd.exists(arg2))
 		{
-			_serial->println(arg2);
+			_serial->print(arg2);
 			_serial->println(F(" already exists"));
 		}
 	}
@@ -269,7 +269,7 @@ void Terminal::handle_MKDIR(char input[])
 
 		if (sd.exists(arg1))
 		{
-			_serial->println(arg1);
+			_serial->print(arg1);
 			_serial->println(F(" created"));
 		}
 		else
@@ -280,7 +280,7 @@ void Terminal::handle_MKDIR(char input[])
 	}
 	else
 	{
-		_serial->println(arg1);
+		_serial->print(arg1);
 		_serial->println(F(" already exists"));
 	}
 
@@ -317,20 +317,6 @@ void Terminal::handle_CP(char input[])
 			{
 				srcFile.close();
 				copyFile(fullSrcPath, fullDestPath);
-			}
-
-			if (sd.exists(destPath))
-			{
-				_serial->print(fullSrcPath);
-				_serial->print(F(" copied to "));
-				_serial->println(destPath);
-			}
-			else
-			{
-				_serial->print(F("Failed to copy "));
-				_serial->print(fullSrcPath);
-				_serial->print(F(" to "));
-				_serial->println(destPath);
 			}
 		}
 		else
@@ -400,7 +386,7 @@ void Terminal::handle_PRINT(char input[])
 	}
 	else
 	{
-		_serial->println(arg1);
+		_serial->print(arg1);
 		_serial->println(F(" doesn't exist"));
 	}
 
@@ -548,7 +534,7 @@ void Terminal::copyFile(char fullSrcPath[], char fullDestPath[])
 
 	if (!destFile)
 	{
-		_serial->println("Error opening destination file at ");
+		_serial->print("Error opening destination file at ");
 		_serial->println(fullDestPath);
 	}
 
@@ -556,6 +542,21 @@ void Terminal::copyFile(char fullSrcPath[], char fullDestPath[])
 	uint8_t buf[64];
 	while ((n = srcFile.read(buf, sizeof(buf))) > 0)
 		destFile.write(buf, n);
+
+	if (srcFile.size() == destFile.size())
+	{
+		_serial->print("Copied ");
+		_serial->print(fullSrcPath);
+		_serial->print(" to ");
+		_serial->println(fullDestPath);
+	}
+	else
+	{
+		_serial->print("Problem trying to copy ");
+		_serial->print(fullSrcPath);
+		_serial->print(" to ");
+		_serial->println(fullDestPath);
+	}
 
 	srcFile.close();
 	destFile.close();
@@ -566,7 +567,58 @@ void Terminal::copyFile(char fullSrcPath[], char fullDestPath[])
 
 void Terminal::copyDir(char fullSrcPath[], char fullDestPath[])
 {
-	//TODO
+	File srcFile = sd.open(fullSrcPath);
+
+	if (srcFile.isDirectory())
+	{
+		if (!sd.exists(fullDestPath))
+			sd.mkdir(fullDestPath);
+
+		while (true)
+		{
+			File subFile = srcFile.openNextFile();
+
+			if (!subFile)
+				break;
+
+			char fileName[MAX_NAME_LEN];
+
+			subFile.getName(fileName, sizeof(fileName));
+			char* srcFilePath = join(fullSrcPath, fileName);
+			char* destFilePath = join(fullDestPath, fileName);
+
+			if (subFile.isDirectory())
+			{
+				srcFile.close();
+				copyDir(srcFilePath, destFilePath);
+			}
+			else
+			{
+				srcFile.close();
+				copyFile(srcFilePath, destFilePath);
+			}
+		}
+
+		if (sd.exists(fullDestPath))
+		{
+			_serial->print("Copied ");
+			_serial->print(fullSrcPath);
+			_serial->print(" to ");
+			_serial->println(fullDestPath);
+		}
+		else
+		{
+			_serial->print("Problem trying to copy ");
+			_serial->print(fullSrcPath);
+			_serial->print(" to ");
+			_serial->println(fullDestPath);
+		}
+	}
+	else
+	{
+		srcFile.close();
+		copyFile(fullSrcPath, fullDestPath);
+	}
 }
 
 

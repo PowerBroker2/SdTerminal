@@ -8,6 +8,8 @@
 
 const char H_RULE[] PROGMEM = "--------------------------------------------------";
 const uint8_t MAX_INPUT_LEN = 255;
+const uint8_t MAX_NAME_LEN = 40;
+const uint8_t MAX_PATH_LEN = 225;
 
 
 
