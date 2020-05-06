@@ -48,7 +48,7 @@ void Terminal::handleCmds()
 
 		if (startsWith(input, "help"))
 			handle_HELP(input);
-		else if (startsWith(input, "ls"))
+		else if (startsWith(input, "ls ") || !strcmp(input, "ls"))
 			handle_LS(input);
 		else if (startsWith(input, "rm "))
 			handle_RM(input);
@@ -66,6 +66,10 @@ void Terminal::handleCmds()
 			handle_CREATE(input);
 		else if (startsWith(input, "ap "))
 			handle_AP(input);
+		else if (!strcmp(input, "pwd"))
+			handle_PWD();
+		else if (startsWith(input, "cd "))
+			handle_CD(input);
 		else
 			_serial->println('?');
 
@@ -89,6 +93,10 @@ void Terminal::handle_HELP(char input[])
 			_serial->println(F("ap file line - Append line to the contents of file."));
 		else if (!strcmp(arg1, "print"))
 			_serial->println(F("print file - Print the contents of file."));
+		else if (!strcmp(arg1, "pwd"))
+			_serial->println(F("pwd - Print the present working directory."));
+		else if (!strcmp(arg1, "cd"))
+			_serial->println(F("cd dest - Change present working directory to dest."));
 		else if (!strcmp(arg1, "cp"))
 			_serial->println(F("cp src dest - Copy file src to dest."));
 		else if (!strcmp(arg1, "echo"))
@@ -114,6 +122,7 @@ void Terminal::handle_HELP(char input[])
 		_serial->println(F("For more information on a specific command, type help command-name"));
 		_serial->println(F(">     - Create file if it doesn't already exist."));
 		_serial->println(F("ap    - Append a line to an existing file."));
+		_serial->println(F("cd    - Change present working directory."));
 		_serial->println(F("cp    - Copy a file to another location."));
 		_serial->println(F("echo  - Turn on or off echoing user commands."));
 		_serial->println(F("help  - Provide info on commands. Can specify a specific command for help."));
@@ -121,11 +130,9 @@ void Terminal::handle_HELP(char input[])
 		_serial->println(F("mkdir - Make a new directory at a specific location."));
 		_serial->println(F("mv    - Move or rename a file."));
 		_serial->println(F("print - Print the contents of the given file."));
+		_serial->println(F("pwd   - Print the present working directory."));
 		_serial->println(F("rm    - Remove a file or dir"));
 	}
-
-	// garbage collection
-	free(arg1);
 }
 
 
@@ -160,9 +167,6 @@ void Terminal::handle_LS(char input[])
 		root = sd.open("/");
 		root.ls(_serial, LS_R | LS_SIZE);
 	}
-
-	// garbage collection
-	free(arg1);
 }
 
 
@@ -174,27 +178,12 @@ void Terminal::handle_RM(char input[])
 
 	if (sd.exists(nameArg))
 	{
-		File file = sd.open(nameArg, O_READ);
+		File file_ = sd.open(nameArg, O_READ);
 
-		if (file.isDirectory())
-		{
-			deleteDirectory(file, nameArg);
-
-			if (!sd.exists(nameArg))
-			{
-				_serial->print(F("Deleted: "));
-				_serial->println(nameArg);
-			}
-			else
-			{
-				_serial->print(F("Failed to delete: "));
-				_serial->println(nameArg);
-			}
-		}
-
-		file.close();
-		file = sd.open(nameArg, O_WRITE);
-		file.remove();
+		if (file_.isDirectory())
+			deleteDirectory(file_, nameArg);
+		else
+			sd.remove(nameArg);
 
 		if (!sd.exists(nameArg))
 		{
@@ -208,15 +197,12 @@ void Terminal::handle_RM(char input[])
 		}
 	}
 	else if (!strcmp(nameArg, "all"))
-		deleteDirectory(root);
+		deleteDirectory(root, "/");
 	else
 	{
 		_serial->print(nameArg);
 		_serial->println(F(" not found"));
 	}
-
-	// garbage collection
-	free(nameArg);
 }
 
 
@@ -261,10 +247,6 @@ void Terminal::handle_MV(char input[])
 			_serial->println(F(" already exists"));
 		}
 	}
-
-	// garbage collection
-	free(arg1);
-	free(arg2);
 }
 
 
@@ -294,9 +276,6 @@ void Terminal::handle_MKDIR(char input[])
 		_serial->print(arg1);
 		_serial->println(F(" already exists"));
 	}
-
-	// garbage collection
-	free(arg1);
 }
 
 
@@ -344,12 +323,6 @@ void Terminal::handle_CP(char input[])
 			_serial->println(F(" does not exists"));
 		}
 	}
-
-	// garbage collection
-	free(fullSrcPath);
-	free(destPath);
-	free(basename);
-	free(fullDestPath);
 }
 
 
@@ -371,9 +344,6 @@ void Terminal::handle_ECHO(char input[])
 	}
 	else
 		_serial->println('?');
-
-	// garbage collection
-	free(arg1);
 }
 
 
@@ -401,9 +371,6 @@ void Terminal::handle_PRINT(char input[])
 		_serial->print(arg1);
 		_serial->println(F(" doesn't exist"));
 	}
-
-	// garbage collection
-	free(arg1);
 }
 
 
@@ -434,9 +401,6 @@ void Terminal::handle_CREATE(char input[])
 		_serial->print(arg1);
 		_serial->println(F(" already exists"));
 	}
-
-	// garbage collection
-	free(arg1);
 }
 
 
@@ -457,7 +421,7 @@ void Terminal::handle_AP(char input[])
 
 		_serial->print(F("Wrote\n\t"));
 		_serial->println(line);
-		_serial->println(F("to\n\t"));
+		_serial->print(F("to\n\t"));
 		_serial->println(arg1);
 	}
 	else
@@ -465,10 +429,56 @@ void Terminal::handle_AP(char input[])
 		_serial->print(arg1);
 		_serial->println(F(" does not exist"));
 	}
+}
 
-	// garbage collection
-	free(arg1);
-	free(arg2);
+
+
+
+void Terminal::handle_PWD()
+{
+	FatFile* file = sd.vwd();
+
+	file->printName(_serial);
+	_serial->println();
+}
+
+
+
+
+void Terminal::handle_CD(char input[])
+{
+	char* arg1 = findSubStr(input);
+
+	if (sd.chdir(arg1, true))
+	{
+		_serial->print(F("PWD changed to "));
+		handle_PWD();
+	}
+	else if (!strcmp(arg1, ".."))
+	{
+		char pwd[MAX_PATH_LEN] = { '\0' };
+
+		FatFile* file = sd.vwd();
+		file->getName(pwd, sizeof(pwd));
+
+		char* dirName = findDirname(pwd);
+
+		if (sd.chdir(dirName, true))
+		{
+			_serial->print(F("PWD changed to "));
+			handle_PWD();
+		}
+		else
+		{
+			_serial->print("Could not change PWD to ");
+			_serial->println(dirName);
+		}
+	}
+	else
+	{
+		_serial->print("Could not change PWD to ");
+		_serial->println(arg1);
+	}
 }
 
 
@@ -574,6 +584,32 @@ char* Terminal::findBasename(char path[])
 		numLevels++;
 
 	return findSubStr(path, numLevels, "/");
+}
+
+
+
+
+char* Terminal::findDirname(char path[])
+{
+	char* dirName;
+	uint8_t numLevels = numOccur(path, '/');
+
+	if (path[strlen(path) - 1] == '/')
+		numLevels--;
+
+	if (path[0] == '/')
+		numLevels++;
+
+	for (uint8_t i=0; i<numLevels; i++)
+	{
+		char* subDirName = findSubStr(path, i, "/");
+
+		dirName = join(dirName, subDirName);
+	}
+
+	Serial.println(dirName);
+
+	return dirName;
 }
 
 
@@ -701,57 +737,48 @@ void Terminal::copyDir(char fullSrcPath[], char fullDestPath[])
 
 
 
-void Terminal::deleteDirectory(File dir, const char* path)
+void Terminal::deleteDirectory(File dir, char* path)
 {
-	char fullPath[100];
+	char* fullPath;
 
-	if (dir.isDirectory())
+	while (true)
 	{
-		char fileName[40];
+		File file = dir.openNextFile();
 
-		while (true)
+		if (!file)
+			break;
+
+		char fileName[MAX_NAME_LEN] = { '\0' };
+
+		for (byte i = 0; i < sizeof(fileName); i++)
+			fileName[i] = '\0';
+
+		file.getName(fileName, sizeof(fileName));
+
+		fullPath = join(path, fileName);
+		Serial.println(fullPath);
+
+		if (file.isDirectory())
 		{
-			File file = dir.openNextFile();
-
-			if (!file)
-				break;
-
-			file.getName(fileName, sizeof(fileName));
-
-			for (byte i=0; i<sizeof(fullPath); i++)
-				fullPath[i] = '\0';
-
-			memcpy(fullPath, path, strlen(path));
-			strcat(fullPath, "/");
-			strcat(fullPath, fileName);
-
-			// don't delete the volume info files
-			if (!strstr(fullPath, "System Volume Infor"))
-			{
-				if (file.isDirectory())
-					deleteDirectory(file, fullPath);
-				else
-				{
-					file.open(fullPath, O_WRITE);
-					file.remove();
-
-					if (!sd.exists(fullPath))
-					{
-						_serial->print(F("Deleted: "));
-						_serial->println(fullPath);
-					}
-					else
-					{
-						_serial->print(F("Failed to delete: "));
-						_serial->println(fullPath);
-					}
-				}
-			}
-
-			file.close();
+			deleteDirectory(file, fullPath);
 		}
-		sd.rmdir(path);
+		else
+		{
+			sd.remove(fullPath);
+
+			if (!sd.exists(fullPath))
+			{
+				_serial->print(F("Deleted: "));
+				_serial->println(fullPath);
+			}
+			else
+			{
+				_serial->print(F("Failed to delete: "));
+				_serial->println(fullPath);
+			}
+		}
 	}
+	sd.rmdir(path);
 }
 
 

@@ -52,14 +52,17 @@ private:
 	void handle_PRINT(char input[]);
 	void handle_CREATE(char input[]);
 	void handle_AP(char input[]);
+	void handle_PWD();
+	void handle_CD(char input[]);
 
 	void readInput(char input[], const uint8_t& inputSize);
 	bool startsWith(const char scan[], const char target[]);
 	char* findSubStr(char input[], uint8_t place=1, const char* delim=" ");
 	char* findBasename(char path[]);
+	char* findDirname(char path[]);
 	char* join(char path[], char add[]);
 	void copyFile(char fullSrcPath[], char fullDestPath[]);
 	void copyDir(char fullSrcPath[], char fullDestPath[]);
-	void deleteDirectory(File dir, const char* path="");
+	void deleteDirectory(File dir, char* path);
 	uint8_t numOccur(char* input, const char& target=',');
 };
