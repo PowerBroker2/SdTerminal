@@ -9,7 +9,7 @@
 const char H_RULE[] PROGMEM = "--------------------------------------------------";
 const uint8_t MAX_INPUT_LEN = 255;
 const uint8_t MAX_NAME_LEN = 40;
-const uint8_t MAX_PATH_LEN = 225;
+const uint8_t MAX_PATH_LEN = 255;
 
 
 
@@ -36,6 +36,7 @@ private:
 	SdFatSdioEX sd;
 	File root;
 
+	char* pwd;
 	uint16_t _timeout;
 	bool echo = true;
 
@@ -57,6 +58,7 @@ private:
 
 	void readInput(char input[], const uint8_t& inputSize);
 	bool startsWith(const char scan[], const char target[]);
+	char* findOccur(char input[], char target[], uint16_t ithOccur);
 	char* findSubStr(char input[], uint8_t place=1, const char* delim=" ");
 	char* findBasename(char path[]);
 	char* findDirname(char path[]);
