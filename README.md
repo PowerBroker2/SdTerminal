@@ -7,6 +7,7 @@ Basic terminal interface for Arduino SD card logging/file management. Allows bas
 For more information on a specific command, type help command-name<br/>
 `>`     - Create file if it doesn't already exist<br/>
 `ap`    - Append a line to an existing file<br/>
+`cd`    - Change present working directory<br/>
 `cp`    - Copy a file to another location<br/>
 `echo`  - Turn on or off echoing user commands<br/>
 `help`  - Provide info on commands. Can specify a specific command for help<br/>
@@ -14,6 +15,7 @@ For more information on a specific command, type help command-name<br/>
 `mkdir` - Make a new directory at a specific location<br/>
 `mv`    - Move or rename a file<br/>
 `print` - Print the contents of the given file<br/>
+`pwd`   - Print the present working directory<br/>
 `rm`    - Remove a file or dir
 
 ## Notes:
