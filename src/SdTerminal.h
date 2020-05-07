@@ -18,7 +18,6 @@ class Terminal
 {
 public:
 	bool initialized;
-	uint8_t numColumns;
 
 
 
@@ -33,8 +32,13 @@ public:
 private:
 	Stream* _serial;
 	FireTimer msTimer;
-	SdFatSdioEX sd;
 	File root;
+
+#ifdef CORE_TEENSY
+	SdFatSdioEX sd;
+#else
+	SdFat sd;
+#endif // CORE_TEENSY
 
 	char* pwd;
 	uint16_t _timeout;
