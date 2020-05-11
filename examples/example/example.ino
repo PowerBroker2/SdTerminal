@@ -1,5 +1,13 @@
+#include <SPI.h>
+#include "SdFat.h"
 #include "SdTerminal.h"
 
+
+#ifdef TEENSY_CORE
+SdFatSdioEX sd;
+#else
+SdFat sd;
+#endif
 
 Terminal myTerminal;
 
@@ -7,7 +15,8 @@ Terminal myTerminal;
 void setup()
 {
   Serial.begin(115200);
-  while (!myTerminal.begin());
+  sd.begin();
+  myTerminal.begin(sd);
 }
 
 
@@ -15,4 +24,3 @@ void loop()
 {
   myTerminal.handleCmds();
 }
-
