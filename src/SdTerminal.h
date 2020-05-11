@@ -17,13 +17,7 @@ const uint8_t MAX_PATH_LEN = 255;
 class Terminal
 {
 public:
-	bool initialized;
-
-
-
-
-	bool begin(Stream& stream=Serial, uint8_t csPin=SS, SPISettings spiSettings=SPI_FULL_SPEED, const uint16_t& timeout=100);
-	bool init(uint8_t csPin=SS, SPISettings spiSettings=SPI_FULL_SPEED);
+	void begin(FatFileSystem& sd, Stream& stream=Serial, const uint16_t& timeout=100);
 	void handleCmds();
 
 
@@ -31,14 +25,9 @@ public:
 
 private:
 	Stream* _serial;
+	FatFileSystem* _sd;
 	FireTimer msTimer;
 	File root;
-
-#ifdef CORE_TEENSY
-	SdFatSdioEX sd;
-#else
-	SdFat sd;
-#endif // CORE_TEENSY
 
 	char* pwd;
 	uint16_t _timeout;
