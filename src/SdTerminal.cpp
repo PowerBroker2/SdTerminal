@@ -3,7 +3,7 @@
 
 
 
-void Terminal::begin(FatFileSystem& sd, Stream& stream, const uint16_t& timeout)
+void Terminal::begin(SdFs& sd, Stream& stream, const uint16_t& timeout)
 {
 	_serial = &stream;
 	_sd = &sd;
@@ -14,6 +14,8 @@ void Terminal::begin(FatFileSystem& sd, Stream& stream, const uint16_t& timeout)
 	pwd = (char*)malloc(MAX_PATH_LEN);
 	pwd[0] = '/';
 	pwd[1] = '\0';
+
+	root = _sd->open(pwd);
 }
 
 
@@ -29,7 +31,16 @@ void Terminal::handleCmds()
 		readInput(input, sizeof(input));
 
 		if (echo)
-			_serial->println(input);
+		{
+			if (!strcmp(input, "ls"))
+			{
+				_serial->print(input);
+				_serial->print(' ');
+				_serial->println(pwd);
+			}
+			else
+				_serial->println(input);
+		}
 
 		_serial->println(H_RULE);
 
@@ -133,7 +144,7 @@ void Terminal::handle_LS(char input[])
 	{
 		if (_sd->exists(path))
 		{
-			File dir = _sd->open(path);
+			auto dir = _sd->open(path);
 
 			if (dir.isDirectory())
 				dir.ls(_serial, LS_R | LS_SIZE);
@@ -151,7 +162,7 @@ void Terminal::handle_LS(char input[])
 	}
 	else
 	{
-		root = _sd->open("/");
+		root = _sd->open(pwd);
 		root.ls(_serial, LS_R | LS_SIZE);
 	}
 }
@@ -165,7 +176,7 @@ void Terminal::handle_RM(char input[])
 
 	if (_sd->exists(nameArg))
 	{
-		File file_ = _sd->open(nameArg, O_READ);
+		auto file_ = _sd->open(nameArg, O_READ);
 
 		if (file_.isDirectory())
 			deleteDirectory(file_, nameArg);
@@ -208,7 +219,7 @@ void Terminal::handle_MV(char input[])
 
 	if (_sd->exists(srcPath))
 	{
-		File file = _sd->open(srcPath);
+		auto file = _sd->open(srcPath);
 
 		if (file.isDirectory())
 		{
@@ -314,7 +325,7 @@ void Terminal::handle_CP(char input[])
 
 	if (_sd->exists(fullSrcPath))
 	{
-		File srcFile = _sd->open(fullSrcPath);
+		auto srcFile = _sd->open(fullSrcPath);
 
 		// make sure we only copy to a dir and not a file
 		if (!strstr(destPath, "."))
@@ -384,7 +395,7 @@ void Terminal::handle_PRINT(char input[])
 	{
 		_serial->print(filepath); _serial->println(F(" found:"));
 
-		File file = _sd->open(filepath, FILE_READ);
+		auto file = _sd->open(filepath, FILE_READ);
 
 		size_t n;
 		uint8_t buf[64];
@@ -409,7 +420,7 @@ void Terminal::handle_CREATE(char input[])
 
 	if (!_sd->exists(filepath))
 	{
-		File newFile = _sd->open(filepath, FILE_WRITE);
+		auto newFile = _sd->open(filepath, FILE_WRITE);
 		newFile.close();
 
 		if (_sd->exists(filepath))
@@ -442,7 +453,7 @@ void Terminal::handle_AP(char input[])
 
 	if (_sd->exists(filepath))
 	{
-		File newFile = _sd->open(filepath, FILE_WRITE);
+		auto newFile = _sd->open(filepath, FILE_WRITE);
 		newFile.println(line);
 		newFile.close();
 
@@ -479,7 +490,7 @@ void Terminal::handle_CD(char input[])
 		char* tempPWD = pwd;
 		pwd = findDirname(pwd);
 
-		if (!_sd->chdir(pwd, true))
+		if (!_sd->chdir(pwd))
 		{
 			_serial->print(F("Could not change PWD to "));
 			_serial->println(pwd);
@@ -491,7 +502,7 @@ void Terminal::handle_CD(char input[])
 	{
 		if (_sd->exists(newPWD))
 		{
-			if (!_sd->chdir(newPWD, true))
+			if (!_sd->chdir(newPWD))
 			{
 				_serial->print(F("Could not change PWD to "));
 				_serial->println(newPWD);
@@ -633,10 +644,7 @@ char* Terminal::findBasename(char path[])
 
 	if (path[strlen(path) - 1] == '/')
 		numLevels--;
-
-	if (path[0] == '/')
-		numLevels++;
-
+	
 	return findSubStr(path, numLevels, "/");
 }
 
@@ -691,8 +699,8 @@ char* Terminal::join(char path[], char add[])
 
 void Terminal::copyFile(char fullSrcPath[], char fullDestPath[])
 {
-	File srcFile = _sd->open(fullSrcPath, FILE_READ);
-	File destFile = _sd->open(fullDestPath, FILE_WRITE);
+	auto srcFile = _sd->open(fullSrcPath, FILE_READ);
+	auto destFile = _sd->open(fullDestPath, FILE_WRITE);
 
 	if (!srcFile)
 	{
@@ -737,7 +745,7 @@ void Terminal::copyFile(char fullSrcPath[], char fullDestPath[])
 
 void Terminal::copyDir(char fullSrcPath[], char fullDestPath[])
 {
-	File srcFile = _sd->open(fullSrcPath);
+	auto srcFile = _sd->open(fullSrcPath);
 
 	if (srcFile.isDirectory())
 	{
@@ -746,7 +754,7 @@ void Terminal::copyDir(char fullSrcPath[], char fullDestPath[])
 
 		while (true)
 		{
-			File subFile = srcFile.openNextFile();
+			auto subFile = srcFile.openNextFile();
 
 			if (!subFile)
 				break;
@@ -794,13 +802,13 @@ void Terminal::copyDir(char fullSrcPath[], char fullDestPath[])
 
 
 
-void Terminal::deleteDirectory(File dir, char* path)
+void Terminal::deleteDirectory(FsFile dir, char* path)
 {
 	char* fullPath;
 
 	while (true)
 	{
-		File file = dir.openNextFile();
+		auto file = dir.openNextFile();
 
 		if (!file)
 			break;

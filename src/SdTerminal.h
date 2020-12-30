@@ -17,7 +17,7 @@ const uint8_t MAX_PATH_LEN = 255;
 class Terminal
 {
 public:
-	void begin(FatFileSystem& sd, Stream& stream=Serial, const uint16_t& timeout=100);
+	void begin(SdFs& sd, Stream& stream=Serial, const uint16_t& timeout=100);
 	void handleCmds();
 
 
@@ -25,9 +25,10 @@ public:
 
 private:
 	Stream* _serial;
-	FatFileSystem* _sd;
+	SdFs* _sd;
+	FsFile root;
+
 	FireTimer msTimer;
-	File root;
 
 	char* pwd;
 	uint16_t _timeout;
@@ -58,6 +59,6 @@ private:
 	char* join(char path[], char add[]);
 	void copyFile(char fullSrcPath[], char fullDestPath[]);
 	void copyDir(char fullSrcPath[], char fullDestPath[]);
-	void deleteDirectory(File dir, char* path);
+	void deleteDirectory(FsFile dir, char* path);
 	uint8_t numOccur(char* input, const char& target=',');
 };
